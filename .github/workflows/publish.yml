@@ -1,0 +1,33 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup JDK
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - uses: jfrog/setup-jfrog-cli@v1
+      with:
+        version: 1.43.2
+      env:
+        JF_ARTIFACTORY_SPRING: ${{ secrets.JF_ARTIFACTORY_SPRING }}
+
+    - name: Configure JFrog Cli
+      run: |
+        jfrog rt gradlec \
+          --use-wrapper
+          --server-id-resolve=spring \
+          --server-id-deploy=spring \
+          --repo-resolve=release \
+          --repo-deploy=snapshot
+        echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
+        echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
+
+    - name: Build and Publish
+      run: ./gradlew clean build artifactoryPublish
