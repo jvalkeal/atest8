@@ -72,6 +72,18 @@ jobs:
         version: 1.43.2
       env:
         JF_ARTIFACTORY_LOCAL: ${{ secrets.JF_ARTIFACTORY_SECRET_LOCAL }}
+    # prepare env for cli to promote
+    - name: Configure JFrog Cli
+      run: |
+        jfrog rt gradlec \
+          --use-wrapper \
+          --deploy-ivy-desc=false \
+          --server-id-resolve=local \
+          --server-id-deploy=local \
+          --repo-resolve=libs-release \
+          --repo-deploy=libs-staging-local
+        echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
+        echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
     - name: Configure JFrog Cli
       run: |
         while read line; do echo $line >> $GITHUB_ENV; done < buildinfo.txt
