@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  staging:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
+    - uses: jfrog/setup-jfrog-cli@v1
+      with:
+        version: 1.43.2
+      env:
+        JF_ARTIFACTORY_LOCAL: ${{ secrets.JF_ARTIFACTORY_SECRET_LOCAL }}
+    - name: Configure JFrog Cli
+      run: |
+        jfrog rt gradlec \
+          --use-wrapper \
+          --deploy-ivy-desc=false \
+          --server-id-resolve=local \
+          --server-id-deploy=local \
+          --repo-resolve=libs-release \
+          --repo-deploy=libs-staging-local
+        echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
+        echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
+    - name: Build and Publish
+      run: |
+        jfrog rt gradle clean build -x test artifactoryPublish
+        jfrog rt build-publish
+        echo JFROG_CLI_BUILD_NAME=$JFROG_CLI_BUILD_NAME > buildinfo.txt
+        echo JFROG_CLI_BUILD_NUMBER=$JFROG_CLI_BUILD_NUMBER >> buildinfo.txt
+    - uses: actions/upload-artifact@v2
+      with:
+        name: buildinfo
+        path: buildinfo.txt
+
+  promote:
+    runs-on: ubuntu-latest
+    needs: staging
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: buildinfo
+    - uses: jfrog/setup-jfrog-cli@v1
+      with:
+        version: 1.43.2
+      env:
+        JF_ARTIFACTORY_LOCAL: ${{ secrets.JF_ARTIFACTORY_SECRET_LOCAL }}
+    - name: Configure JFrog Cli
+      run: |
+        while read line; do echo $line >> $GITHUB_ENV; done < buildinfo.txt
+    - name: Download Release Files
+      run: |
+        jfrog rt build-promote libs-release-local
+
+  central:
+    runs-on: ubuntu-latest
+    needs: promote
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: buildinfo
+    - uses: jfrog/setup-jfrog-cli@v1
+      with:
+        version: 1.43.2
+      env:
+        JF_ARTIFACTORY_LOCAL: ${{ secrets.JF_ARTIFACTORY_SECRET_LOCAL }}
+    - name: Configure JFrog Cli
+      run: |
+        while read line; do echo $line >> $GITHUB_ENV; done < buildinfo.txt
+    - name: Download Release Files
+      run: |
+        jfrog rt download \
+          --spec .github/release-files-spec.json \
+          --spec-vars "buildname=$JFROG_CLI_BUILD_NAME;buildnumber=$JFROG_CLI_BUILD_NUMBER"
+    - uses: jvalkeal/nexus-sync@main
+      with:
+        url: http://localhost:8082/nexus
+        username: ${{ secrets.NEXUS_USERNAME }}
+        password: ${{ secrets.NEXUS_PASSWORD }}
+        staging-profile-name: test
+        create: true
+        upload: true
+        close: true
+        release: true
+        generate-checksums: true
+        generate-checksums-config: >
+          [
+            { "type": "md5", "extension": "md5" },
+            { "type": "sha1", "extension": "sha1" }
+          ]
+        pgp-sign: true
+        pgp-sign-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+        pgp-sign-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
