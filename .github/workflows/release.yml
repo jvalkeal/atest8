@@ -34,12 +34,19 @@ jobs:
     - name: Configure Release Version
       run: |
         jfrog rt gradle releaseVersion
+        echo PROJECT_VERSION=$(jfrog rt gradle "properties -q" | grep "version:" | awk '{print $2}') >> $GITHUB_ENV
     - name: Build and Publish
       run: |
         jfrog rt gradle clean build -x test artifactoryPublish
         jfrog rt build-publish
         echo JFROG_CLI_BUILD_NAME=$JFROG_CLI_BUILD_NAME > buildinfo.txt
         echo JFROG_CLI_BUILD_NUMBER=$JFROG_CLI_BUILD_NUMBER >> buildinfo.txt
+    - name: Tag Release
+      uses: jvalkeal/build-zoo-handler@v0.0.4
+      with:
+        tag-release-branch: ${{ env.PROJECT_VERSION }}
+        tag-release-tag: ${{ env.PROJECT_VERSION }}
+        tag-release-tag-prefix: v
     - uses: actions/upload-artifact@v2
       with:
         name: buildinfo
