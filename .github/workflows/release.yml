@@ -22,6 +22,7 @@ jobs:
         version: 1.43.2
       env:
         JF_ARTIFACTORY_LOCAL: ${{ secrets.JF_ARTIFACTORY_SECRET_LOCAL }}
+    # prepare env for cli to get a staging build working
     - name: Configure JFrog Cli
       run: |
         jfrog rt gradlec \
@@ -33,6 +34,7 @@ jobs:
           --repo-deploy=libs-staging-local
         echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
         echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
+    # switch from snapshot to a release version
     - name: Configure Release Version
       run: |
         jfrog rt gradle releaseVersion
