@@ -5,6 +5,9 @@ name: Release
 on:
   workflow_dispatch:
 
+# there's 3 jobs, staging, promote and central.
+# promote waits staging and manual approval and
+# central waits promote and manual approval.
 jobs:
 
   # build and release to staging repo.
@@ -40,7 +43,9 @@ jobs:
       run: |
         jfrog rt gradle releaseVersion
         echo PROJECT_VERSION=$(jfrog rt gradle "properties -q" | grep "version:" | awk '{print $2}') >> $GITHUB_ENV
-    # build and publish to staging repo
+    # build and publish to staging repo.
+    # we've allready tested with snapshots so no need to test
+    # with a release build as we are not a release train.
     - name: Build and Publish
       run: |
         jfrog rt gradle clean build -x test artifactoryPublish
@@ -60,6 +65,7 @@ jobs:
     needs: staging
     environment: promote
     steps:
+    # need repo to push release branch and a tag
     - uses: actions/checkout@v2
     - uses: jfrog/setup-jfrog-cli@v1
       with:
@@ -100,6 +106,7 @@ jobs:
     needs: promote
     environment: central
     steps:
+    # need repo for spec file
     - uses: actions/checkout@v2
     - uses: jfrog/setup-jfrog-cli@v1
       with:
@@ -111,7 +118,10 @@ jobs:
       run: |
         echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
         echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
-    # download released files for a build
+    # download released files for a build.
+    # spec file defines files we actually need for central
+    # as release in artifactory contains some test and samples modules
+    # which we don't want in central.
     - name: Download Release Files
       run: |
         jfrog rt download \
