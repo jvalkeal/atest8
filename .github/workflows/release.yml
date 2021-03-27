@@ -40,12 +40,12 @@ jobs:
       run: |
         jfrog rt gradle releaseVersion
         echo PROJECT_VERSION=$(jfrog rt gradle "properties -q" | grep "version:" | awk '{print $2}') >> $GITHUB_ENV
+    # build and publish to staging repo
     - name: Build and Publish
       run: |
         jfrog rt gradle clean build -x test artifactoryPublish
         jfrog rt build-publish
-        echo JFROG_CLI_BUILD_NAME=$JFROG_CLI_BUILD_NAME > buildinfo.txt
-        echo JFROG_CLI_BUILD_NUMBER=$JFROG_CLI_BUILD_NUMBER >> buildinfo.txt
+    # we've now done a release build, branch and tag it in github
     - name: Tag Release
       uses: jvalkeal/build-zoo-handler@v0.0.4
       with:
@@ -117,7 +117,7 @@ jobs:
         jfrog rt download \
           --spec .github/release-files-spec.json \
           --spec-vars "buildname=$JFROG_CLI_BUILD_NAME;buildnumber=$JFROG_CLI_BUILD_NUMBER"
-    # last step, sync to central
+    # last step, sync to central.
     - uses: jvalkeal/nexus-sync@main
       with:
         url: http://localhost:8082/nexus
