@@ -1,3 +1,5 @@
+# full release workflow which does a staging build, github tagging,
+# promotion in artifactory and release into central.
 name: Release
 
 on:
@@ -51,14 +53,6 @@ jobs:
       with:
         name: buildinfo
         path: buildinfo.txt
-    - name: Switch to Next Dev Version
-      run: |
-        git checkout gradle.properties
-        jfrog rt gradle nextVersion
-    - uses: jvalkeal/build-zoo-handler@v0.0.4
-      with:
-        commit-changes-branch: main
-        commit-changes-message: Next development version
 
   # wait manual approval.
   # promote build from staging to releases
@@ -67,6 +61,7 @@ jobs:
     needs: staging
     environment: promote
     steps:
+    - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
         name: buildinfo
@@ -81,6 +76,13 @@ jobs:
     - name: Promote Build
       run: |
         jfrog rt build-promote libs-release-local
+    - name: Switch to Next Dev Version
+      run: |
+        jfrog rt gradle nextVersion
+    - uses: jvalkeal/build-zoo-handler@v0.0.4
+      with:
+        commit-changes-branch: main
+        commit-changes-message: Next development version
 
   # wait manual approval.
   # pull released artifacts from repo and do a dance with central sync where we
