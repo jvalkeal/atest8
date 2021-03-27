@@ -78,12 +78,11 @@ jobs:
           --repo-deploy=libs-staging-local
         echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
         echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
-    - name: Configure JFrog Cli
-      run: |
-        while read line; do echo $line >> $GITHUB_ENV; done < buildinfo.txt
+    # promoting build from staging repo into release
     - name: Promote Build
       run: |
         jfrog rt build-promote libs-release-local
+    # we've promoted so change repo to next dev version
     - name: Switch to Next Dev Version
       run: |
         jfrog rt gradle nextVersion
@@ -112,11 +111,13 @@ jobs:
       run: |
         echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
         echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
+    # download released files for a build
     - name: Download Release Files
       run: |
         jfrog rt download \
           --spec .github/release-files-spec.json \
           --spec-vars "buildname=$JFROG_CLI_BUILD_NAME;buildnumber=$JFROG_CLI_BUILD_NUMBER"
+    # last step, sync to central
     - uses: jvalkeal/nexus-sync@main
       with:
         url: http://localhost:8082/nexus
