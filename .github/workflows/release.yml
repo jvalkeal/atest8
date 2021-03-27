@@ -34,7 +34,8 @@ jobs:
           --repo-deploy=libs-staging-local
         echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
         echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
-    # switch from snapshot to a release version
+    # switch from snapshot to a release version and extract project
+    # version to get used with tagging
     - name: Configure Release Version
       run: |
         jfrog rt gradle releaseVersion
@@ -51,10 +52,6 @@ jobs:
         tag-release-branch: ${{ env.PROJECT_VERSION }}
         tag-release-tag: ${{ env.PROJECT_VERSION }}
         tag-release-tag-prefix: v
-    - uses: actions/upload-artifact@v2
-      with:
-        name: buildinfo
-        path: buildinfo.txt
 
   # wait manual approval.
   # promote build from staging to releases
@@ -64,9 +61,6 @@ jobs:
     environment: promote
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v2
-      with:
-        name: buildinfo
     - uses: jfrog/setup-jfrog-cli@v1
       with:
         version: 1.43.2
@@ -108,17 +102,16 @@ jobs:
     environment: central
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v2
-      with:
-        name: buildinfo
     - uses: jfrog/setup-jfrog-cli@v1
       with:
         version: 1.43.2
       env:
         JF_ARTIFACTORY_LOCAL: ${{ secrets.JF_ARTIFACTORY_SECRET_LOCAL }}
+    # prepare env for cli do download released files
     - name: Configure JFrog Cli
       run: |
-        while read line; do echo $line >> $GITHUB_ENV; done < buildinfo.txt
+        echo JFROG_CLI_BUILD_NAME=spring-statemachine >> $GITHUB_ENV
+        echo JFROG_CLI_BUILD_NUMBER=$GITHUB_RUN_NUMBER >> $GITHUB_ENV
     - name: Download Release Files
       run: |
         jfrog rt download \
